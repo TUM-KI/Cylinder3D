@@ -27,5 +27,6 @@ RUN pip3 install spconv-1.2.1-cp38-cp38-linux_x86_64.whl
 ## Install Cylinder 3D
 RUN git clone --recursive --depth 1 https://github.com/TUM-KI/Cylinder3D.git /cylinder3d
 WORKDIR /cylinder3d
+RUN chmod +x train_nusc.sh
 
 
