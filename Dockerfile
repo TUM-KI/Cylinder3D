@@ -12,11 +12,11 @@ RUN chmod +x kitware-archive.sh && ./kitware-archive.sh
 
 #RUN pip3 install torch
 RUN pip3 install torch==1.6.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-RUN pip3 install pyyaml
-RUN pip3 install cython
-RUN pip3 install nuscenes-devkit
-RUN pip3 install numba
-RUN pip3 install strictyaml
+RUN pip3 install pyyaml==5.4.1
+RUN pip3 install cython==0.29.24
+RUN pip3 install nuscenes-devkit==1.1.6
+RUN pip3 install numba==0.53.1
+RUN pip3 install strictyaml==1.4.4
 
 # Torch scatter
 #RUN pip3 install torch-scatter
