@@ -36,5 +36,6 @@ RUN pip3 install *.whl
 RUN git clone --recursive --depth 1 https://github.com/TUM-KI/Cylinder3D.git /cylinder3d
 WORKDIR /cylinder3d
 RUN chmod +x train_nusc.sh
+RUN mkdir -p /data/dataset/nuScenes
 
 
