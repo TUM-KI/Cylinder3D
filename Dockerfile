@@ -5,6 +5,7 @@ RUN apt install -y python3 python3-dev python3-pip
 RUN pip3 install --upgrade pip
 RUN apt install -y git wget
 RUN apt install -y build-essential
+RUN apt install -y ffmpeg libsm6 libxext6
 
 # get newer version of cmake
 RUN wget https://apt.kitware.com/kitware-archive.sh
