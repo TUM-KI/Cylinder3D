@@ -45,9 +45,11 @@ WORKDIR /spconv/dist
 RUN pip3 install *.whl
 
 ## Install Cylinder 3D
-RUN git clone --recursive --depth 1 https://github.com/TUM-KI/Cylinder3D.git /cylinder3d
+#RUN git clone --recursive --depth 1 https://github.com/TUM-KI/Cylinder3D.git /cylinder3d
+COPY . /cylinder3d
 WORKDIR /cylinder3d
 RUN chmod +x train_nusc.sh
 RUN mkdir -p /data/dataset/nuScenes
+RUN chmod +x run_demo.sh
 
 
