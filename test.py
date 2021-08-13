@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import torch
 import argparse
 from tqdm import tqdm
@@ -19,6 +20,8 @@ def main(args: Dict) -> None:
     model_config = configs['model_params']
     train_hypers = configs['train_params']
 
+    val_dataloader_config = configs['val_data_loader']
+
     label_name = get_nuScenes_label_name(dataset_config['label_mapping'])
     unique_label = np.asarray(sorted(list(label_name.keys())))[1:] - 1
     unique_label_str = [label_name[x] for x in unique_label + 1]
@@ -36,7 +39,7 @@ def main(args: Dict) -> None:
         configs['val_data_loader'], grid_size=model_config['output_shape']
     )
 
-    pbar = tqdm(total=len(val_data_loader))
+    pbar = tqdm(total=len(val_dataset_loader))
     my_model.eval()
     with torch.no_grad():
         for i_iter_val, (_, val_vox_label, val_grid, val_pt_labs, val_pt_fea) in enumerate(val_dataset_loader):
@@ -45,19 +48,19 @@ def main(args: Dict) -> None:
                 for i in val_pt_fea
             ]
             val_grid_ten = [
-                torch.from_numpy(i).to(torch_device) 
+                torch.from_numpy(i).to(pytorch_device) 
                 for i in val_grid
             ]
             val_label_tensor = val_vox_label.type(torch.LongTensor).to(pytorch_device)
 
-            predict_labels = my_model(val_pt_fea_ten, val_grid_ten, val_batch_size)
+            predict_labels = my_model(val_pt_fea_ten, val_grid_ten, val_dataloader_config['batch_size'])
             predict_labels = torch.argmax(predict_labels, dim=1).cpu().detach().numpy()
             print(predict_labels)
             pbar.update(1)
 
 
 if __name__ == '__main__':
-    parser = arparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
     parser.add_argument('-y', '--config-path', default='config/nuScenes.yaml')
     args = parser.parse_args()
     main(args)

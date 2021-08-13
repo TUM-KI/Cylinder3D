@@ -51,5 +51,6 @@ WORKDIR /cylinder3d
 RUN chmod +x train_nusc.sh
 RUN mkdir -p /data/dataset/nuScenes
 RUN chmod +x run_demo.sh
+RUN mkdir model_save_dir_nuscenes
 
 
