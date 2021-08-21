@@ -29,10 +29,13 @@ def main(args: Dict) -> None:
 
     my_model = model_builder.build(model_config)
     if os.path.exists(train_hypers['model_load_path']):
+        print("has model checkpoint")
         my_model = load_checkpoint_1b1(
             train_hypers['model_load_path'],
             my_model
         )
+    else:
+        print("no model checkpoint")
     my_model.to(pytorch_device)
 
     _, val_dataset_loader = data_builder.build(
@@ -63,9 +66,9 @@ def main(args: Dict) -> None:
                     fast_hist_crop(predict_labels[
                         count, val_grid[count][:,0],
                         val_grid[count][:,1],
-                        val_grid[count][:,2],
+                        val_grid[count][:,2]],
                         val_pt_labs[count], unique_label
-                    ])
+                    )
                 )
 
             pbar.update(1)
