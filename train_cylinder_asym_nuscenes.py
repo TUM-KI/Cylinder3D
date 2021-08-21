@@ -54,7 +54,10 @@ def main(args):
 
     my_model = model_builder.build(model_config)
     if os.path.exists(model_load_path):
+        print('has model')
         my_model = load_checkpoint_1b1(model_load_path, my_model)
+    else:
+        print('no model found')
 
     my_model.to(pytorch_device)
     optimizer = optim.Adam(my_model.parameters(), lr=train_hypers["learning_rate"])
@@ -103,6 +106,7 @@ def main(args):
                                                                 val_grid[count][:, 2]], val_pt_labs[count],
                                                             unique_label))
                         val_loss_list.append(loss.detach().cpu().numpy())
+                torch.cuda.empty_cache()
                 my_model.train()
                 iou = per_class_iu(sum(hist_list))
                 print('Validation per class iou: ')
@@ -127,6 +131,7 @@ def main(args):
 
             # forward + backward + optimize
             outputs = my_model(train_pt_fea_ten, train_vox_ten, train_batch_size)
+            torch.cuda.empty_cache()
             loss = lovasz_softmax(torch.nn.functional.softmax(outputs), point_label_tensor, ignore=0) + loss_func(
                 outputs, point_label_tensor)
             loss.backward()
@@ -149,6 +154,7 @@ def main(args):
                           (epoch, i_iter, np.mean(loss_list)))
                 else:
                     print('loss error')
+            torch.cuda.empty_cache()
         pbar.close()
         epoch += 1
 
