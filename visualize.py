@@ -37,8 +37,17 @@ def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
     predicted_colors = [colormap[i] for i in predicted_label]
     groundtruth_colors = [colormap[i] for i in groundtruth_label[:,0]]
 
+    diff_labels = predicted_label == groundtruth_label[:,0]
+    diff_colormap = {
+        True: [135, 206, 235],  # skyblue
+        False: [220, 20, 60]    # crimson
+    }
+    diff_colors = [diff_colormap[i] for i in diff_labels]
+
     save_point_cloud('tmp/predicted.ply', pc, predicted_colors)
     save_point_cloud('tmp/groundtruth.ply', pc, groundtruth_colors)
+    save_point_cloud('tmp/diff.ply', pc, diff_colors)
+
 
 
 def main(args):
