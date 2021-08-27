@@ -12,14 +12,19 @@ from dataloader.pc_dataset import get_nuScenes_label_name, get_nuScenes_colormap
 
 from plyfile import PlyData, PlyElement
 
-def save_point_cloud(pc, predicted_label,groundtruth_label, colormap):
+def save_point_cloud(path, pc, color):
     num_vertices = pc.shape[0]
     vertices = np.zeros((num_vertices), dtype=[('x', np.float32), ('y', np.float32),
     ('z', np.float32), ('red', np.ubyte), ('green', np.ubyte), ('blue', np.ubyte)])
 
-    vertices2 = np.zeros((num_vertices), dtype=[('x', np.float32), ('y', np.float32),
-    ('z', np.float32), ('red', np.ubyte), ('green', np.ubyte), ('blue', np.ubyte)])
+    for index in range(pc.shape[0]):
+        point = pc[index,:]
+        vertices[index] = (*point, *color[index])
+    el = PlyElement.describe(vertices, 'vertex')
+    PlyData([el], text=True).write(path)
 
+
+def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
 
     unique_label_prediction = np.unique(predicted_label)
     unique_label_groundtruth = np.unique(groundtruth_label[:,0])
@@ -28,19 +33,12 @@ def save_point_cloud(pc, predicted_label,groundtruth_label, colormap):
     
     print(f"unique predicted {set(zip(unique_label_prediction, prediction_bin_count))}")
     print(f"unique groundtruth {set(zip(unique_label_groundtruth, groundtruth_bin_count))}")
-    for index in range(pc.shape[0]):
-        point = pc[index,:]
-        l = predicted_label[index]
-        g = groundtruth_label[index,0]
-        c = colormap[l]
-        gc = colormap[g]
-        vertices[index] = (*point, *c)
-        vertices2[index] = (*point, *gc)
-    print(vertices)
-    el = PlyElement.describe(vertices, 'vertex')
-    el2 = PlyElement.describe(vertices2, 'vertex')
-    PlyData([el], text=True).write('tmp/test.ply')
-    PlyData([el2], text=True).write('tmp/groundtruth.ply')
+
+    predicted_colors = [colormap[i] for i in predicted_label]
+    groundtruth_colors = [colormap[i] for i in groundtruth_label[:,0]]
+
+    save_point_cloud('tmp/predicted.ply', pc, predicted_colors)
+    save_point_cloud('tmp/groundtruth.ply', pc, groundtruth_colors)
 
 
 def main(args):
@@ -94,7 +92,7 @@ def main(args):
                 ]
                 pointcloud = val_grid[count]
                 groundtruth = val_pt_labs[count]
-                save_point_cloud(pointcloud, label, groundtruth, label_colormap)
+                pointcloud_vis(pointcloud, label, groundtruth, label_colormap)
                 break
 
             break
