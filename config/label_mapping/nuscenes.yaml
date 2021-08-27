@@ -82,3 +82,37 @@ learning_map:
   27: 14
   28: 15
   30: 16
+
+color_map: # rgb
+  0: [0, 0, 0]  # Black.
+  1: [70, 130, 180]  # Steelblue
+  2: [0, 0, 230]  # Blue
+  3: [135, 206, 235] # Skyblue,
+  4: [100, 149, 237]  # Cornflowerblue
+  5: [219, 112, 147]  # Palevioletred
+  6: [0, 0, 128]  # Navy,
+  7: [240, 128, 128]  # Lightcoral
+  8: [138, 43, 226]  # Blueviolet
+  9: [112, 128, 144]  # Slategrey
+  10: [210, 105, 30]  # Chocolate
+  11: [105, 105, 105]  # Dimgrey
+  12: [47, 79, 79]  # Darkslategrey
+  13: [188, 143, 143]  # Rosybrown
+  14: [220, 20, 60]  # Crimson
+  15: [255, 127, 80]  # Coral
+  16: [255, 69, 0]  # Orangered
+  17: [255, 158, 0]  # Orange
+  18: [233, 150, 70]  # Darksalmon
+  19: [255, 83, 0]
+  20: [255, 215, 0]  # Gold
+  21: [255, 61, 99]  # Red
+  22: [255, 140, 0]  # Darkorange
+  23: [255, 99, 71]  # Tomato
+  24: [0, 207, 191]  # nuTonomy green
+  25: [175, 0, 75]
+  26: [75, 0, 75]
+  27: [112, 180, 60]
+  28: [222, 184, 135]  # Burlywood
+  29: [255, 228, 196]  # Bisque
+  30: [0, 175, 0]  # Green
+  31: [255, 240, 245]

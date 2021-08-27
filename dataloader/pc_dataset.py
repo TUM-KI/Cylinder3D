@@ -365,3 +365,13 @@ def get_nuScenes_label_name(label_mapping):
         nuScenes_label_name[val_] = nuScenesyaml['labels_16'][val_]
 
     return nuScenes_label_name
+
+def get_nuScenes_colormap(label_mapping):
+    with open(label_mapping, 'r') as stream:
+        nuScenesyaml = yaml.safe_load(stream)
+    nuScenes_colormap = dict()
+    for i in sorted(list(nuScenesyaml['color_map'].keys()))[::-1]:
+        val_ = nuScenesyaml['color_map'][i]
+        nuScenes_colormap[i] = val_
+    return nuScenes_colormap
+

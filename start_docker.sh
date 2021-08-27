@@ -1,9 +1,11 @@
 #!/bin/bash
 distroname="$(lsb_release -s -d)"
-datafolder=/home/derkacz/ki-al/datasets/nuscenes/new
-resultfolder=/home/derkacz/ki-al/datasets/results
-modelfolder=/home/derkacz/ki-al/datasets/nuscenes
-savefolder=/home/derkacz/ki-al/datasets/nuscenes/save
+dataroot=/home/derkacz/ki-al/datasets
+datafolder=$dataroot/nuscenes/new
+resultfolder=$dataroot/results
+modelfolder=$dataroot/nuscenes
+savefolder=$dataroot/nuscenes/save
+tmpfolder=/home/derkacz/ki-al/Cylinder3D/tmp
 containername=cylinder3d
 manjaro="Manjaro Linux"
 
@@ -11,7 +13,8 @@ docker build -t $containername .
 # For Manjaro use this:
 docker run --rm --gpus all -it --privileged -v /dev:/dev -v $datafolder:/data/dataset/nuScenes --shm-size 16G \
     -v $resultfolder:/data/datasets/results -v $modelfolder:/cylinder3d/model_load_dir_nuscenes \
-    -v $savefolder:/cylinder3d/model_save_dir_nuscenes $containername bash 
+    -v $savefolder:/cylinder3d/model_save_dir_nuscenes \
+    -v $tmpfolder:/cylinder3d/tmp $containername bash 
 
 # For Ubuntu 20 use this
 #docker run --rm --gpus all -it -v $datafolder:/data/dataset/nuScenes --shm-size 16G $containername bash 

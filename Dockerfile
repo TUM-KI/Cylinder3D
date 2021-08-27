@@ -20,6 +20,7 @@ RUN pip3 install cython==0.29.24
 RUN pip3 install nuscenes-devkit==1.1.6
 RUN pip3 install numba==0.53.1
 RUN pip3 install strictyaml==1.4.4
+RUN pip3 install plyfile
 
 # Torch scatter
 RUN pip3 install --no-index torch-scatter -f https://pytorch-geometric.com/whl/torch-1.6.0+cu102.html
@@ -53,5 +54,7 @@ RUN mkdir -p /data/dataset/nuScenes
 RUN chmod +x run_demo.sh
 RUN mkdir model_save_dir_nuscenes
 RUN mkdir logs_dir
+
+ENTRYPOINT python3 visualize.py
 
 
