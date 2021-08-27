@@ -90,7 +90,7 @@ def main(args):
             predicted_labels = predicted_labels.cpu().detach().numpy()
             # print(predicted_labels[0])
 
-            #ego_transform, csr_transform = val_dataset_loader.get_transform
+            ego_transform, csr_transform = val_dataset.get_transform()
 
             for count, _ in enumerate(val_grid):
                 label = predicted_labels[

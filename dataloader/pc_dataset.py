@@ -7,6 +7,7 @@ import numpy as np
 from torch.utils import data
 import yaml
 import pickle
+from pyquaternion.quaternion import Quaternion
 
 REGISTERED_PC_DATASET_CLASSES = {}
 
@@ -118,12 +119,14 @@ class SemKITTI_nusc(data.Dataset):
         self.nusc_infos = data['infos']
         self.data_path = data_path
         self.nusc = nusc
+        self.current_index = None
 
     def __len__(self):
         'Denotes the total number of samples'
         return len(self.nusc_infos)
 
     def __getitem__(self, index):
+        self.current_index = index
         info = self.nusc_infos[index]
         lidar_path = info['lidar_path'][16:]
         lidar_sd_token = self.nusc.get('sample', info['token'])['data']['LIDAR_TOP']
@@ -138,6 +141,31 @@ class SemKITTI_nusc(data.Dataset):
         if self.return_ref:
             data_tuple += (points[:, 3],)
         return data_tuple
+
+    def get_transforms(self, index):
+        info = self.nusc_infos[self.current_index]
+        lidar_path = info['lidar_path'][16:]
+        lidar_sd_token = self.nusc.get('sample', info['token'])['data']['LIDAR_TOP']
+        point_sensor = self.nusc.get('sample_data', lidar_sd_token)
+        ego_pose_token = point_sensor['ego_pose_token']
+        calibrated_sensor_token = point_sensor['calibrated_sensor_token']
+        ego_pose = self.nusc.get('ego_pose', ego_pose_token)
+        calibrated_sensor = self.nusc.get('calibrated_sensor', calibrated_sensor_token)
+        ego_rot = np.array(ego_pose['rotation'])
+        ego_trans = np.array(ego_pose['translation'])
+        csr_rot = np.array(calibrated_sensor['rotation'])
+        csr_trans = np.array(calibrated_sensor['translation'])
+
+        ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
+        csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
+    
+        return ego_transform, csr_transform
+
+    def _create_4x4_matrix(self, translation, rotation):
+        matrix = np.identity(4)
+        matrix[:-1, :-1] = Quaternion(rotation).rotation_matrix
+        matrix[:3,3] = translation
+        return matrix
 
 
 def absoluteFilePaths(directory):

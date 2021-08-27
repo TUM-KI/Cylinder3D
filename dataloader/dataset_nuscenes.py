@@ -41,12 +41,18 @@ class cylinder_dataset_nuscenes(data.Dataset):
         self.transform = transform_aug
         self.trans_std = trans_std
 
+        self.current_index = None
+
         self.noise_rotation = np.random.uniform(min_rad, max_rad)
 
     def __len__(self):
         return len(self.point_cloud_dataset)
 
+    def get_transform(self):
+        return self.point_cloud_dataset.get_transforms(self.current_index)
+
     def __getitem__(self, index):
+        self.current_index = index
         data = self.point_cloud_dataset[index]
         if len(data) == 2:
             xyz, labels = data
