@@ -58,7 +58,6 @@ def main(args):
     label_mapping = configs['dataset_params']['label_mapping']
     label_name = get_nuScenes_label_name(label_mapping)
     label_colormap = get_nuScenes_colormap(label_mapping)
-    print(label_name)
 
     model_config = configs['model_params']
     my_model = model_builder.build(model_config)
@@ -69,11 +68,12 @@ def main(args):
 
     my_model.to(pytorch_device)
 
-    train_dataset_loader, val_dataset_loader = data_builder.build(
+    train_dataset_loader, val_dataset_loader, train_dataset, val_dataset = data_builder.build(
         configs['dataset_params'],
         configs['train_data_loader'],
         configs['val_data_loader'],
-        grid_size=configs['model_params']['output_shape']
+        grid_size=configs['model_params']['output_shape'],
+        return_dataset=True
     )
 
     my_model.eval()
@@ -91,7 +91,6 @@ def main(args):
             # print(predicted_labels[0])
 
             #ego_transform, csr_transform = val_dataset_loader.get_transform
-            print(f"shape of val_grid: {val_grid[0].shape}")
 
             for count, _ in enumerate(val_grid):
                 label = predicted_labels[

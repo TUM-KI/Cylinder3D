@@ -10,7 +10,8 @@ from dataloader.pc_dataset import get_pc_model_class
 def build(dataset_config,
           train_dataloader_config,
           val_dataloader_config,
-          grid_size=[480, 360, 32]):
+          grid_size=[480, 360, 32],
+          return_dataset=False):
     data_path = train_dataloader_config["data_path"]
     train_imageset = train_dataloader_config["imageset"]
     val_imageset = val_dataloader_config["imageset"]
@@ -64,4 +65,7 @@ def build(dataset_config,
                                                      shuffle=val_dataloader_config["shuffle"],
                                                      num_workers=val_dataloader_config["num_workers"])
 
-    return train_dataset_loader, val_dataset_loader
+    if return_dataset:
+        return train_dataset_loader, val_dataset_loader, train_dataset, val_dataset
+    else:
+        return train_dataset_loader, val_dataset_loader
