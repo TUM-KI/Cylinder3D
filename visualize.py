@@ -26,8 +26,8 @@ def save_point_cloud(path, pc, color):
 
 def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
 
-    unique_label_prediction = np.unique(predicted_label)
-    unique_label_groundtruth = np.unique(groundtruth_label[:,0])
+    unique_label_prediction = sorted(np.unique(predicted_label))
+    unique_label_groundtruth = sorted(np.unique(groundtruth_label[:,0]))
     prediction_bin_count = np.bincount(predicted_label)[unique_label_prediction]
     groundtruth_bin_count = np.bincount(groundtruth_label[:,0])[unique_label_groundtruth]
     
@@ -48,6 +48,11 @@ def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
     save_point_cloud('tmp/groundtruth.ply', pc, groundtruth_colors)
     save_point_cloud('tmp/diff.ply', pc, diff_colors)
 
+def transform_to_global(pc, ego_trans, sensor_trans):
+    pass
+
+def transform_to_camera(pc, ego_trans, sensor_trans):
+    pass
 
 
 def main(args):
@@ -90,7 +95,7 @@ def main(args):
             predicted_labels = predicted_labels.cpu().detach().numpy()
             # print(predicted_labels[0])
 
-            ego_transform, csr_transform = val_dataset.get_transform()
+            lidar_transforms, camera_transforms = val_dataset.get_transform()
 
             for count, _ in enumerate(val_grid):
                 label = predicted_labels[
