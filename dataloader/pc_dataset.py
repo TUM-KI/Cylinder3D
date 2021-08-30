@@ -7,6 +7,7 @@ import numpy as np
 from torch.utils import data
 import yaml
 import pickle
+from PIL import Image
 from pyquaternion.quaternion import Quaternion
 
 REGISTERED_PC_DATASET_CLASSES = {}
@@ -184,6 +185,19 @@ class SemKITTI_nusc(data.Dataset):
             camera_transforms.append(c_transform)
 
         return lidar_transforms, np.concatenate(tuple(camera_transforms), axis=0)
+
+    def get_images(self, index):
+        info = self.nusc_infos[self.current_index]
+        sample = self.nusc.get('sample', info['token'])
+        camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+        camera_token = [sample['data'][i] for i in camera_channel]
+        camera_objects = [self.nusc.get('sample_data', token) for token in camera_token]
+        images=[]
+        for c_object in camera_objects:
+            path = os.path.join(self.nusc.dataroot, c_object['filename'])
+            images.append(np.expand_dims(np.array(Image.open(path)), axis=0))
+        return np.concatenate(tuple(images), axis=0)
+
 
     def _create_4x4_matrix(self, translation, rotation):
         matrix = np.identity(4)

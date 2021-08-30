@@ -51,6 +51,9 @@ class cylinder_dataset_nuscenes(data.Dataset):
     def get_transform(self):
         return self.point_cloud_dataset.get_transforms(self.current_index)
 
+    def get_images(self):
+        return self.point_cloud_dataset.get_images(self.current_index)
+
     def __getitem__(self, index):
         self.current_index = index
         data = self.point_cloud_dataset[index]
