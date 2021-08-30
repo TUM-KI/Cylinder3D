@@ -157,9 +157,9 @@ class SemKITTI_nusc(data.Dataset):
         csr_rot = np.array(calibrated_sensor['rotation'])
         csr_trans = np.array(calibrated_sensor['translation'])
 
-        ego_transform = np.expand_dims(self._create_4x4_matrix(ego_trans, ego_rot), axis=0)
-        csr_transform = np.expand_dims(self._create_4x4_matrix(csr_trans, csr_rot), axis=0)
-        lidar_transforms = np.concatenate((ego_transform, csr_transform), axis=0)
+        ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
+        csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
+        lidar_transforms = np.concatenate((csr_transform, ego_transform), axis=0)
 
         camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
         camera_token = [sample['data'][i] for i in camera_channel]
@@ -169,18 +169,18 @@ class SemKITTI_nusc(data.Dataset):
         for c_object in camera_objects:
             calibrated_sensor = self.nusc.get('calibrated_sensor', c_object['calibrated_sensor_token'])
             ego_pose = self.nusc.get('ego_pose', c_object['ego_pose_token'])
-            csr_transform = np.expand_dims(self._create_4x4_matrix(
-                np.array(calibrated_sensor['translation']),
-                np.array(calibrated_sensor['rotation'])
-            ), axis=0)
-            ego_transform = np.expand_dims(self._create_4x4_matrix(
-                np.array(ego_pose['translation']),
-                np.array(ego_pose['rotation'])
-            ), axis=0)
+            csr_transform = self._create_4x4_matrix(
+                                                np.array(calibrated_sensor['translation']),
+                                                np.array(calibrated_sensor['rotation'])
+                                            )
+            ego_transform = self._create_4x4_matrix(
+                                                np.array(ego_pose['translation']),
+                                                np.array(ego_pose['rotation'])
+                                            )
             c_transform = np.expand_dims(
-                np.concatenate((ego_transform, csr_transform), axis=0),
-                axis=0
-            )
+                                            np.concatenate((csr_transform, ego_transform), axis=0),
+                                            axis=0
+                                        )
             camera_transforms.append(c_transform)
 
         return lidar_transforms, np.concatenate(tuple(camera_transforms), axis=0)

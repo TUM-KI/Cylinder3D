@@ -48,8 +48,18 @@ def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
     save_point_cloud('tmp/groundtruth.ply', pc, groundtruth_colors)
     save_point_cloud('tmp/diff.ply', pc, diff_colors)
 
-def transform_to_global(pc, ego_trans, sensor_trans):
-    pass
+def to_homogenous_points(pc):
+    shape = pc.shape
+    return np.vstack((pc[:3,:], np.ones(shape[1]))) 
+
+def transform_to_global(pc, lidar_transform):
+    # ego pose * calibrated sensor
+    transform = lidar_transform[4:,:] @ lidar_transform[:4,:]
+    homogenous_points = to_homogenous_points(pc)
+    result = transform @ homogenous_points
+    transformed_points = pc.copy()
+    transformed_points[:3,:] = result[:3,:]
+    return transformed_points
 
 def transform_to_camera(pc, ego_trans, sensor_trans):
     pass
@@ -104,6 +114,7 @@ def main(args):
                     val_grid[count][:,2]
                 ]
                 pointcloud = val_grid[count]
+                pointcloud = transform_to_global(pointcloud, lidar_transforms)
                 groundtruth = val_pt_labs[count]
                 pointcloud_vis(pointcloud, label, groundtruth, label_colormap)
                 break
