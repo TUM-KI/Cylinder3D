@@ -47,6 +47,7 @@ RUN pip3 install *.whl
 
 ## Install Cylinder 3D
 #RUN git clone --recursive --depth 1 https://github.com/TUM-KI/Cylinder3D.git /cylinder3d
+RUN apt install -y python3-tk
 COPY . /cylinder3d
 WORKDIR /cylinder3d
 RUN chmod +x train_nusc.sh
