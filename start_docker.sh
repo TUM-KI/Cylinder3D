@@ -14,7 +14,8 @@ docker build -t $containername .
 docker run --rm --gpus all -it --privileged -v /dev:/dev -v $datafolder:/data/dataset/nuScenes --shm-size 16G \
     -v $resultfolder:/data/datasets/results -v $modelfolder:/cylinder3d/model_load_dir_nuscenes \
     -v $savefolder:/cylinder3d/model_save_dir_nuscenes \
-    -v $tmpfolder:/cylinder3d/tmp $containername bash 
+    -v $tmpfolder:/cylinder3d/tmp \
+    -e DISPLAY=$DISPLAY -v /tmp/.X11-unix/:/tmp/.X11-unix $containername bash 
 
 # For Ubuntu 20 use this
 #docker run --rm --gpus all -it -v $datafolder:/data/dataset/nuScenes --shm-size 16G $containername bash 
