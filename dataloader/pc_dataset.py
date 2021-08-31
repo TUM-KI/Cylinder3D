@@ -104,6 +104,22 @@ class SemKITTI_sk(data.Dataset):
         return data_tuple
 
 
+from plyfile import PlyData, PlyElement
+
+
+def save_point_cloud(path, pc):
+    num_vertices = pc.shape[0]
+    vertices = np.zeros((num_vertices), dtype=[('x', np.float32), ('y', np.float32),
+    ('z', np.float32), ('red', np.ubyte), ('green', np.ubyte), ('blue', np.ubyte)])
+
+    for index in range(pc.shape[0]):
+        point = pc[index,:3]
+        color = [155, 155, 155]
+        vertices[index] = (*point, *color)
+    el = PlyElement.describe(vertices, 'vertex')
+    PlyData([el], text=True).write(path)
+
+
 @register_dataset
 class SemKITTI_nusc(data.Dataset):
     def __init__(self, data_path, imageset='train',
@@ -137,7 +153,7 @@ class SemKITTI_nusc(data.Dataset):
         points_label = np.fromfile(lidarseg_labels_filename, dtype=np.uint8).reshape([-1, 1])
         points_label = np.vectorize(self.learning_map.__getitem__)(points_label)
         points = np.fromfile(os.path.join(self.data_path, lidar_path), dtype=np.float32, count=-1).reshape([-1, 5])
-
+        save_point_cloud('tmp/original.ply', points)
         data_tuple = (points[:, :3], points_label.astype(np.uint8))
         if self.return_ref:
             data_tuple += (points[:, 3],)
@@ -145,64 +161,66 @@ class SemKITTI_nusc(data.Dataset):
 
     def get_transforms(self, index):
         info = self.nusc_infos[self.current_index]
-        lidar_path = info['lidar_path'][16:]
-        sample = self.nusc.get('sample', info['token'])
-        lidar_sd_token = sample['data']['LIDAR_TOP']
-        point_sensor = self.nusc.get('sample_data', lidar_sd_token)
-        ego_pose_token = point_sensor['ego_pose_token']
-        calibrated_sensor_token = point_sensor['calibrated_sensor_token']
-        ego_pose = self.nusc.get('ego_pose', ego_pose_token)
-        calibrated_sensor = self.nusc.get('calibrated_sensor', calibrated_sensor_token)
-        ego_rot = np.array(ego_pose['rotation'])
-        ego_trans = np.array(ego_pose['translation'])
-        csr_rot = np.array(calibrated_sensor['rotation'])
-        csr_trans = np.array(calibrated_sensor['translation'])
+        print(info)
+        # sample = self.nusc.get('sample', info['token'])
+        # lidar_sd_token = sample['data']['LIDAR_TOP']
+        # point_sensor = self.nusc.get('sample_data', lidar_sd_token)
+        # ego_pose_token = point_sensor['ego_pose_token']
+        # calibrated_sensor_token = point_sensor['calibrated_sensor_token']
+        # ego_pose = self.nusc.get('ego_pose', ego_pose_token)
+        # calibrated_sensor = self.nusc.get('calibrated_sensor', calibrated_sensor_token)
+        # ego_rot = np.array(ego_pose['rotation'])
+        # ego_trans = np.array(ego_pose['translation'])
+        # csr_rot = np.array(calibrated_sensor['rotation'])
+        # csr_trans = np.array(calibrated_sensor['translation'])
+
+        ego_trans = np.array(info['ego2global_translation'])
+        ego_rot = np.array(info['ego2global_rotation'])
+        csr_trans = np.array(info['lidar2ego_translation'])
+        csr_rot = np.array(info['lidar2ego_rotation'])
+
 
         ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
         csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
-        lidar_transforms = np.concatenate((csr_transform, ego_transform), axis=0)
+        # lidar_transforms = np.concatenate((csr_transform, ego_transform), axis=0)
+        lidar_transforms = (ego_rot, ego_trans, csr_rot, csr_trans)
 
         camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
-        camera_token = [sample['data'][i] for i in camera_channel]
-        camera_objects = [self.nusc.get('sample_data', token) for token in camera_token]
-
         camera_transforms = []
-        for c_object in camera_objects:
-            calibrated_sensor = self.nusc.get('calibrated_sensor', c_object['calibrated_sensor_token'])
-            ego_pose = self.nusc.get('ego_pose', c_object['ego_pose_token'])
-            csr_transform = self._create_4x4_matrix(
-                                                np.array(calibrated_sensor['translation']),
-                                                np.array(calibrated_sensor['rotation'])
-                                            )
-            ego_transform = self._create_4x4_matrix(
-                                                np.array(ego_pose['translation']),
-                                                np.array(ego_pose['rotation'])
-                                            )
+        for channel in camera_channel:
+            cam = info['cams'][channel]
+            csr_trans, csr_rot = np.array(cam['sensor2ego_translation']), np.array(cam['sensor2ego_rotation'])
+            ego_trans, ego_rot = np.array(cam['ego2global_translation']), np.array(cam['ego2global_rotation'])
+            intrinsics = np.array(cam['cam_intrinsic'])
+            csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
+            ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
+            camera_intrinsic = np.identity(4)
+            camera_intrinsic[:-1,:-1] = intrinsics
+            
             c_transform = np.expand_dims(
-                                            np.concatenate((csr_transform, ego_transform), axis=0),
+                                            np.concatenate((csr_transform, ego_transform, camera_intrinsic), axis=0),
                                             axis=0
                                         )
+            c_transform = (ego_rot, ego_trans, csr_rot, csr_trans, intrinsics)
             camera_transforms.append(c_transform)
 
-        return lidar_transforms, np.concatenate(tuple(camera_transforms), axis=0)
+        return lidar_transforms, camera_transforms#np.concatenate(tuple(camera_transforms), axis=0)
 
     def get_images(self, index):
         info = self.nusc_infos[self.current_index]
-        sample = self.nusc.get('sample', info['token'])
         camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
-        camera_token = [sample['data'][i] for i in camera_channel]
-        camera_objects = [self.nusc.get('sample_data', token) for token in camera_token]
         images=[]
-        for c_object in camera_objects:
-            path = os.path.join(self.nusc.dataroot, c_object['filename'])
+        for channel in camera_channel:
+            path = os.path.join(self.data_path, info['cams'][channel]['data_path'][16:])
             images.append(np.expand_dims(np.array(Image.open(path)), axis=0))
         return np.concatenate(tuple(images), axis=0)
 
 
     def _create_4x4_matrix(self, translation, rotation):
         matrix = np.identity(4)
-        matrix[:-1, :-1] = Quaternion(rotation).rotation_matrix
+        matrix[:3, :3] = Quaternion(rotation).rotation_matrix
         matrix[:3,3] = translation
+        print(matrix)
         return matrix
 
 

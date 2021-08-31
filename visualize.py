@@ -9,8 +9,16 @@ from config.config import load_config_data
 from builder import data_builder, model_builder
 from dataloader.pc_dataset import get_nuScenes_label_name, get_nuScenes_colormap
 
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+from PIL import Image
 
 from plyfile import PlyData, PlyElement
+from pyquaternion.quaternion import Quaternion
+
+
+from dataloader.dataset_nuscenes import polar2cat
 
 def save_point_cloud(path, pc, color):
     num_vertices = pc.shape[0]
@@ -24,7 +32,10 @@ def save_point_cloud(path, pc, color):
     PlyData([el], text=True).write(path)
 
 
-def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
+def pointcloud_vis(dest, pc, predicted_label, groundtruth_label, colormap):
+
+    if not os.path.exists(dest):
+        os.mkdir(dest)
 
     unique_label_prediction = sorted(np.unique(predicted_label))
     unique_label_groundtruth = sorted(np.unique(groundtruth_label[:,0]))
@@ -44,9 +55,9 @@ def pointcloud_vis(pc, predicted_label, groundtruth_label, colormap):
     }
     diff_colors = [diff_colormap[i] for i in diff_labels]
 
-    save_point_cloud('tmp/predicted.ply', pc, predicted_colors)
-    save_point_cloud('tmp/groundtruth.ply', pc, groundtruth_colors)
-    save_point_cloud('tmp/diff.ply', pc, diff_colors)
+    save_point_cloud(f'{dest}/predicted.ply', pc, predicted_colors)
+    save_point_cloud(f'{dest}/groundtruth.ply', pc, groundtruth_colors)
+    save_point_cloud(f'{dest}/diff.ply', pc, diff_colors)
 
 def to_homogenous_points(pc):
     shape = pc.shape
@@ -54,16 +65,126 @@ def to_homogenous_points(pc):
 
 def transform_to_global(pc, lidar_transform):
     # ego pose * calibrated sensor
-    transform = lidar_transform[4:,:] @ lidar_transform[:4,:]
-    homogenous_points = to_homogenous_points(pc)
-    result = transform @ homogenous_points
-    transformed_points = pc.copy()
-    transformed_points[:3,:] = result[:3,:]
+    # print(f"num points before global {pc.shape[1]} with shape {pc.shape}")
+    # transform = lidar_transform[4:,:] @ lidar_transform[:4,:]
+    # homogenous_points = to_homogenous_points(pc)
+    # result = transform @ homogenous_points
+    # transformed_points = pc.copy()
+    # transformed_points[:3,:] = result[:3,:]
+    # print(f"num points in global {transformed_points.shape[1]}")
+    # return transformed_points
+
+    new_pc = pc.copy()
+    new_pc = new_pc.astype(np.float64)
+
+    ego_rot, ego_trans, csr_rot, csr_trans = lidar_transform
+
+    rotation = Quaternion(csr_rot).rotation_matrix #lidar_transform[:4,:][:3,:3]
+    translation = csr_trans #lidar_transform[:4,:][:3,3]
+    new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
+    for i in range(3):
+        new_pc[i,:] += translation[i]
+
+    rotation = Quaternion(ego_rot).rotation_matrix #lidar_transform[4:,:][:3,:3]
+    translation = ego_trans #lidar_transform[4:,:][:3,3]
+    new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
+    for i in range(3):
+        new_pc[i,:] += translation[i]
+
+    return new_pc
+
+def transform_to_camera(pc, camera_transforms):
+    # to image frame
+    # print(f"num points before transform {pc.shape[1]} with shape {pc.shape}")
+    # transformed_points = pc.copy()
+    # homogenous_points = to_homogenous_points(pc)
+    # transform = np.linalg.inv(camera_transforms[4:8,:]@camera_transforms[:4,:])
+    # homogenous_points = transform @ homogenous_points
+    # print(f"num points in frame {homogenous_points.shape[1]}")
+    # # to camera
+    # viewpad = np.eye(4)
+    # viewpad[:3,:3] = camera_transforms[8:,:][:3,:3]
+    # transformed_points[:3,:] = (viewpad @ homogenous_points)[:3,:]
+    # transformed_points = transformed_points.astype(np.float64)
+    # print(f"num points in camera {transformed_points.shape[1]}")
+    # # normalize
+    # transformed_points = transformed_points[:3,:]
+    # nbr_points = transformed_points.shape[1]
+    # print(nbr_points)
+    # transformed_points = transformed_points / transformed_points[2:3,:].repeat(3,0).reshape(3, nbr_points)
+    # return transformed_points
+    new_pc = pc.copy()
+    new_pc = new_pc.astype(np.float64)
+
+    ego_rot, ego_trans, csr_rot, csr_trans, intrins = camera_transforms
+
+    translation = -ego_trans #-camera_transforms[4:8,:][:3,3]
+    print(f"translation {translation}")
+    rotation = Quaternion(ego_rot).rotation_matrix.T#camera_transforms[4:8,:][:3,:3].T
+    for i in range(3):
+        new_pc[i,:] += translation[i]
+    new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
+
+    translation = -csr_trans#-camera_transforms[:4,:][:3,3]
+    rotation = Quaternion(csr_rot).rotation_matrix.T #camera_transforms[:4,:][:3,:3].T
+    for i in range(3):
+        new_pc[i,:] += translation[i]
+    new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
+
+    depths = new_pc[2,:]
+    nbr_points = new_pc.shape[1]
+
+    new_pc = np.concatenate((new_pc, np.ones((1, nbr_points))))
+    viewpad = np.eye(4)
+    viewpad[:intrins.shape[0],:intrins.shape[1]] = intrins #camera_transforms[8:,:][:3,:3]
+    #print(camera_transforms[8:,:])
+    print(viewpad)
+    transformed_points = np.dot(viewpad, new_pc).astype(np.float64)
+    print(f"num points in camera {transformed_points.shape[1]}")
+    # normalize
+    transformed_points = transformed_points[:3,:]
+    nbr_points = transformed_points.shape[1]
+    print(nbr_points)
+    transformed_points = transformed_points / transformed_points[2:3,:].repeat(3,0).reshape(3, nbr_points)
     return transformed_points
 
-def transform_to_camera(pc, ego_trans, sensor_trans):
-    pass
+def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, min_dist: int = 1.0) -> np.ndarray:
+    """
+    Remove all points that are not directly in the image or 
+    are to near to the camera lens.
+    :param lidar: pointcloud
+    :param image: the image
+    :param min_dist: the minimum distance a point need to have from the camera
+    :return: the filtered pointcloud
+    """
+    depths = lidar[2,:]
+    print(f"image shape {image.shape}")
+    print(f" in filter {lidar.shape}")
+    mask = np.ones(depths.shape[0], dtype=bool)
+    mask = np.logical_and(mask, depths > min_dist)
+    mask = np.logical_and(mask, lidar[0,:] > 1)
+    mask = np.logical_and(mask, lidar[0,:] < image.shape[1] - 1)
+    mask = np.logical_and(mask, lidar[1,:] > 1)
+    mask = np.logical_and(mask, lidar[1,:] < image.shape[0] -1)
+    return lidar[:, mask]
 
+def render_lidar_into_image_stack(img_stack, pc, camera_transforms):
+    camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+    for i in range(len(camera_channel)):
+        image = img_stack[i]
+        transforms = camera_transforms[i]
+        tmp = pc.copy()
+        lidar_in_camera = transform_to_camera(tmp, transforms)
+        #lidar_in_camera = filter_points_not_in_cam(lidar_in_camera, image)
+        fig, ax = plt.subplots(1,1)
+        ax.imshow(image)
+        ax.scatter(lidar_in_camera[0,:], lidar_in_camera[1,:])
+        ax.axis('off')
+        plt.show()
+        s, (width, height) = fig.canvas.print_to_buffer()
+        img = np.fromstring(s, np.uint8).reshape((height, width, 4))
+        img = Image.fromarray(img)
+        img.save(f"tmp/frame_{camera_channel[i]}.png")
 
 def main(args):
     pytorch_device = torch.device('cuda:0')
@@ -94,7 +215,9 @@ def main(args):
     my_model.eval()
     val_batch_size = configs['val_data_loader']['batch_size']
     with torch.no_grad():
-        for i, (_, val_vox_label, val_grid, val_pt_labs, val_pt_fea) in enumerate(val_dataset_loader):
+        for i, (voxel_position, val_vox_label, val_grid, val_pt_labs, val_pt_fea) in enumerate(val_dataset_loader):
+            print(f" voxel position shape: {voxel_position.shape}")
+            
             val_pt_fea_tensor = [torch.from_numpy(i).type(torch.FloatTensor).to(pytorch_device) for i in
                                           val_pt_fea]
             val_grid_tensor = [torch.from_numpy(i).to(pytorch_device) for i in val_grid]
@@ -106,6 +229,7 @@ def main(args):
             # print(predicted_labels[0])
 
             lidar_transforms, camera_transforms = val_dataset.get_transform()
+            camera_images = val_dataset.get_images()
 
             for count, _ in enumerate(val_grid):
                 label = predicted_labels[
@@ -113,10 +237,16 @@ def main(args):
                     val_grid[count][:,1],
                     val_grid[count][:,2]
                 ]
-                pointcloud = val_grid[count]
-                pointcloud = transform_to_global(pointcloud, lidar_transforms)
+                print(f"tmp shape  {val_grid[count].shape}")
+                pointcloud = polar2cat( val_grid[count].T ).T
+                voxel_position_global = transform_to_global(voxel_position[0].numpy(), lidar_transforms)
+                print(f"pointcloud shape {pointcloud.shape}")
+                # pointcloud = transform_to_global(pointcloud.T, lidar_transforms)
                 groundtruth = val_pt_labs[count]
-                pointcloud_vis(pointcloud, label, groundtruth, label_colormap)
+                pointcloud_vis(f"tmp/{count}", pointcloud, label, groundtruth, label_colormap)
+                pointcloud_vis(f"tmp/xyz", voxel_position_global, label, groundtruth, label_colormap)
+                pointcloud_vis(f"tmp/xyz_untransformed", voxel_position[0].numpy(), label, groundtruth, label_colormap)
+                render_lidar_into_image_stack(camera_images, voxel_position_global.T, camera_transforms)
                 break
 
             break

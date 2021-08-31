@@ -85,7 +85,6 @@ class cylinder_dataset_nuscenes(data.Dataset):
             noise_scale = np.random.uniform(0.95, 1.05)
             xyz[:, 0] = noise_scale * xyz[:, 0]
             xyz[:, 1] = noise_scale * xyz[:, 1]
-        # convert coordinate into polar coordinates
 
         if self.transform:
             noise_translate = np.array([np.random.normal(0, self.trans_std[0], 1),
@@ -93,7 +92,8 @@ class cylinder_dataset_nuscenes(data.Dataset):
                                         np.random.normal(0, self.trans_std[2], 1)]).T
 
             xyz[:, 0:3] += noise_translate
-
+            
+        # convert coordinate into polar coordinates
         xyz_pol = cart2polar(xyz)
 
         max_bound_r = np.percentile(xyz_pol[:, 0], 100, axis=0)
@@ -124,7 +124,7 @@ class cylinder_dataset_nuscenes(data.Dataset):
         label_voxel_pair = np.concatenate([grid_ind, labels], axis=1)
         label_voxel_pair = label_voxel_pair[np.lexsort((grid_ind[:, 0], grid_ind[:, 1], grid_ind[:, 2])), :]
         processed_label = nb_process_label(np.copy(processed_label), label_voxel_pair)
-        data_tuple = (voxel_position, processed_label)
+        data_tuple = (xyz, processed_label)
 
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5) * intervals + min_bound
