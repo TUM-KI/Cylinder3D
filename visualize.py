@@ -78,7 +78,7 @@ def transform_to_global(pc, transforms):
     return (ego_transform @ csr_transform @ to_homogenous_points(pc))[:3, :]
 
 def transform_to_camera(pc, transforms):
-    ego_rot, ego_trans, csr_rot, csr_trans, intrinsics, _, _ = transforms
+    ego_rot, ego_trans, csr_rot, csr_trans, intrinsics = transforms
     csr_transform = to_4x4_matrix(Quaternion(csr_rot).rotation_matrix, csr_trans)
     ego_transform = to_4x4_matrix(Quaternion(ego_rot).rotation_matrix, ego_trans)
     inv_transform = np.linalg.inv(ego_transform @ csr_transform)
