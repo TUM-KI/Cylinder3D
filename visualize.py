@@ -16,7 +16,7 @@ from PIL import Image
 
 from plyfile import PlyData, PlyElement
 from pyquaternion.quaternion import Quaternion
-
+from nuscenes.utils.geometry_utils import view_points
 
 from dataloader.dataset_nuscenes import polar2cat
 
@@ -93,7 +93,7 @@ def transform_to_global(pc, lidar_transform):
 
     return new_pc
 
-def transform_to_camera(pc, camera_transforms):
+def transform_to_camera(pc, camera_transforms, colormap):
     # to image frame
     # print(f"num points before transform {pc.shape[1]} with shape {pc.shape}")
     # transformed_points = pc.copy()
@@ -115,8 +115,9 @@ def transform_to_camera(pc, camera_transforms):
     # return transformed_points
     new_pc = pc.copy()
     new_pc = new_pc.astype(np.float64)
+    print(f"new pc shape {new_pc.shape}")
 
-    ego_rot, ego_trans, csr_rot, csr_trans, intrins = camera_transforms
+    ego_rot, ego_trans, csr_rot, csr_trans, intrins, to_lidar_rot, to_lidar_trans = camera_transforms
 
     translation = -ego_trans #-camera_transforms[4:8,:][:3,3]
     print(f"translation {translation}")
@@ -131,22 +132,31 @@ def transform_to_camera(pc, camera_transforms):
         new_pc[i,:] += translation[i]
     new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
 
-    depths = new_pc[2,:]
-    nbr_points = new_pc.shape[1]
+    save_point_cloud('tmp/cam.ply', new_pc.T, colormap)
 
-    new_pc = np.concatenate((new_pc, np.ones((1, nbr_points))))
-    viewpad = np.eye(4)
-    viewpad[:intrins.shape[0],:intrins.shape[1]] = intrins #camera_transforms[8:,:][:3,:3]
-    #print(camera_transforms[8:,:])
-    print(viewpad)
-    transformed_points = np.dot(viewpad, new_pc).astype(np.float64)
-    print(f"num points in camera {transformed_points.shape[1]}")
-    # normalize
-    transformed_points = transformed_points[:3,:]
-    nbr_points = transformed_points.shape[1]
-    print(nbr_points)
-    transformed_points = transformed_points / transformed_points[2:3,:].repeat(3,0).reshape(3, nbr_points)
-    return transformed_points
+    # translation = to_lidar_trans#-camera_transforms[:4,:][:3,3]
+    # rotation = to_lidar_rot #Quaternion(to_lidar_rot).rotation_matrix.T #camera_transforms[:4,:][:3,:3].T
+    # new_pc[:3,:] = np.dot(rotation, new_pc[:3,:])
+    # for i in range(3):
+    #     new_pc[i,:] += translation[i]
+
+    # depths = new_pc[2,:]
+    # nbr_points = new_pc.shape[1]
+
+    # new_pc = np.concatenate((new_pc, np.ones((1, nbr_points))))
+    # viewpad = np.eye(4)
+    # viewpad[:intrins.shape[0],:intrins.shape[1]] = intrins #camera_transforms[8:,:][:3,:3]
+    # #print(camera_transforms[8:,:])
+    # print(viewpad)
+    # transformed_points = np.dot(viewpad, new_pc).astype(np.float64)
+    # print(f"num points in camera {transformed_points.shape[1]}")
+    # # normalize
+    # transformed_points = transformed_points[:3,:]
+    # nbr_points = transformed_points.shape[1]
+    # print(nbr_points)
+    # transformed_points = transformed_points / transformed_points[2:3,:].repeat(3,0).reshape(3, nbr_points)
+    # return transformed_points
+    return view_points(new_pc[:3,:], intrins, normalize=True)
 
 def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, min_dist: int = 1.0) -> np.ndarray:
     """
@@ -168,14 +178,14 @@ def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, min_dist: int
     mask = np.logical_and(mask, lidar[1,:] < image.shape[0] -1)
     return lidar[:, mask]
 
-def render_lidar_into_image_stack(img_stack, pc, camera_transforms):
+def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
         image = img_stack[i]
         transforms = camera_transforms[i]
         tmp = pc.copy()
-        lidar_in_camera = transform_to_camera(tmp, transforms)
-        #lidar_in_camera = filter_points_not_in_cam(lidar_in_camera, image)
+        lidar_in_camera = transform_to_camera(tmp, transforms, colormap)
+        #Slidar_in_camera = filter_points_not_in_cam(lidar_in_camera, image)
         fig, ax = plt.subplots(1,1)
         ax.imshow(image)
         ax.scatter(lidar_in_camera[0,:], lidar_in_camera[1,:])
@@ -240,13 +250,16 @@ def main(args):
                 print(f"tmp shape  {val_grid[count].shape}")
                 pointcloud = polar2cat( val_grid[count].T ).T
                 voxel_position_global = transform_to_global(voxel_position[0].numpy(), lidar_transforms)
-                print(f"pointcloud shape {pointcloud.shape}")
+                print(f"voxel position global {voxel_position_global}")
                 # pointcloud = transform_to_global(pointcloud.T, lidar_transforms)
                 groundtruth = val_pt_labs[count]
+
+                predicted_colors = [label_colormap[i] for i in label]
+                groundtruth_colors = [label_colormap[i] for i in groundtruth[:,0]]
                 pointcloud_vis(f"tmp/{count}", pointcloud, label, groundtruth, label_colormap)
                 pointcloud_vis(f"tmp/xyz", voxel_position_global, label, groundtruth, label_colormap)
                 pointcloud_vis(f"tmp/xyz_untransformed", voxel_position[0].numpy(), label, groundtruth, label_colormap)
-                render_lidar_into_image_stack(camera_images, voxel_position_global.T, camera_transforms)
+                render_lidar_into_image_stack(camera_images, voxel_position_global.T, camera_transforms, predicted_colors)
                 break
 
             break

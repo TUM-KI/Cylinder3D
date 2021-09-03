@@ -182,7 +182,7 @@ class SemKITTI_nusc(data.Dataset):
 
         ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
         csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
-        # lidar_transforms = np.concatenate((csr_transform, ego_transform), axis=0)
+        #lidar_transforms = np.concatenate((csr_transform, ego_transform), axis=0)
         lidar_transforms = (ego_rot, ego_trans, csr_rot, csr_trans)
 
         camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
@@ -191,6 +191,7 @@ class SemKITTI_nusc(data.Dataset):
             cam = info['cams'][channel]
             csr_trans, csr_rot = np.array(cam['sensor2ego_translation']), np.array(cam['sensor2ego_rotation'])
             ego_trans, ego_rot = np.array(cam['ego2global_translation']), np.array(cam['ego2global_rotation'])
+            to_lidar_trans, to_lidar_rot = np.array(cam['sensor2lidar_translation']), np.array(cam['sensor2lidar_rotation'])
             intrinsics = np.array(cam['cam_intrinsic'])
             csr_transform = self._create_4x4_matrix(csr_trans, csr_rot)
             ego_transform = self._create_4x4_matrix(ego_trans, ego_rot)
@@ -201,7 +202,7 @@ class SemKITTI_nusc(data.Dataset):
                                             np.concatenate((csr_transform, ego_transform, camera_intrinsic), axis=0),
                                             axis=0
                                         )
-            c_transform = (ego_rot, ego_trans, csr_rot, csr_trans, intrinsics)
+            c_transform = (ego_rot, ego_trans, csr_rot, csr_trans, intrinsics, to_lidar_rot, to_lidar_trans)
             camera_transforms.append(c_transform)
 
         return lidar_transforms, camera_transforms#np.concatenate(tuple(camera_transforms), axis=0)
