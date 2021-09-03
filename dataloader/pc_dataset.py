@@ -153,7 +153,6 @@ class SemKITTI_nusc(data.Dataset):
         points_label = np.fromfile(lidarseg_labels_filename, dtype=np.uint8).reshape([-1, 1])
         points_label = np.vectorize(self.learning_map.__getitem__)(points_label)
         points = np.fromfile(os.path.join(self.data_path, lidar_path), dtype=np.float32, count=-1).reshape([-1, 5])
-        save_point_cloud('tmp/original.ply', points)
         data_tuple = (points[:, :3], points_label.astype(np.uint8))
         if self.return_ref:
             data_tuple += (points[:, 3],)
@@ -161,7 +160,6 @@ class SemKITTI_nusc(data.Dataset):
 
     def get_transforms(self, index):
         info = self.nusc_infos[self.current_index]
-        print(info)
         # sample = self.nusc.get('sample', info['token'])
         # lidar_sd_token = sample['data']['LIDAR_TOP']
         # point_sensor = self.nusc.get('sample_data', lidar_sd_token)
@@ -221,7 +219,6 @@ class SemKITTI_nusc(data.Dataset):
         matrix = np.identity(4)
         matrix[:3, :3] = Quaternion(rotation).rotation_matrix
         matrix[:3,3] = translation
-        print(matrix)
         return matrix
 
 

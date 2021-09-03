@@ -124,7 +124,7 @@ class cylinder_dataset_nuscenes(data.Dataset):
         label_voxel_pair = np.concatenate([grid_ind, labels], axis=1)
         label_voxel_pair = label_voxel_pair[np.lexsort((grid_ind[:, 0], grid_ind[:, 1], grid_ind[:, 2])), :]
         processed_label = nb_process_label(np.copy(processed_label), label_voxel_pair)
-        data_tuple = (xyz, processed_label)
+        data_tuple = (xyz, processed_label) # TODO: change xyz back to what it was before
 
         # center data on each voxel for PTnet
         voxel_centers = (grid_ind.astype(np.float32) + 0.5) * intervals + min_bound
