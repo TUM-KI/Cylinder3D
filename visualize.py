@@ -83,15 +83,17 @@ def transform_to_camera(pc, transforms):
     pc_homogenous = to_homogenous_points(pc)
     pc_homogenous = inv_transform @ pc_homogenous
 
+    depths = pc_homogenous[2,:]
+
     viewpad = np.eye(4)
     viewpad[:3,:3] = intrinsics
     pc_homogenous = viewpad @ pc_homogenous
     new_pc = pc_homogenous[:3,:]
     nbr_points = new_pc.shape[1]
     new_pc /= new_pc[2:3,:].repeat(3,0).reshape(3,nbr_points)
-    return new_pc
+    return new_pc, depths
 
-def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, min_dist: int = 1.0) -> np.ndarray:
+def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, colormap: np.ndarray, depths: np.ndarray, min_dist: int = 1.0) -> np.ndarray:
     """
     Remove all points that are not directly in the image or 
     are to near to the camera lens.
@@ -100,28 +102,28 @@ def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, min_dist: int
     :param min_dist: the minimum distance a point need to have from the camera
     :return: the filtered pointcloud
     """
-    depths = lidar[2,:]
-    print(f"image shape {image.shape}")
-    print(f" in filter {lidar.shape}")
     mask = np.ones(depths.shape[0], dtype=bool)
     mask = np.logical_and(mask, depths > min_dist)
-    # mask = np.logical_and(mask, lidar[0,:] > 1)
+    mask = np.logical_and(mask, lidar[0,:] > 1)
     mask = np.logical_and(mask, lidar[0,:] < image.shape[1] - 1)
-    # mask = np.logical_and(mask, lidar[1,:] > 1)
+    mask = np.logical_and(mask, lidar[1,:] > 1)
     mask = np.logical_and(mask, lidar[1,:] < image.shape[0] - 1)
-    return lidar[:, mask]
+
+    new_lidar = lidar[:,mask]
+    new_color = colormap[mask]
+    return new_lidar, new_color
 
 def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
         image = img_stack[i]
         transforms = camera_transforms[i]
-        pointcloud = transform_to_camera(pc, transforms)
-        #pointcloud = filter_points_not_in_cam(pointcloud, image)
+        pointcloud, depths = transform_to_camera(pc, transforms)
+        pointcloud, color = filter_points_not_in_cam(pointcloud, image, np.array(colormap), depths)
 
         fig, ax = plt.subplots(1,1)
         ax.imshow(image)
-        ax.scatter(pointcloud[0,:], pointcloud[1,:])
+        ax.scatter(pointcloud[0,:], pointcloud[1,:], c=color/255.0)
         ax.axis('off')
         plt.show()
 
@@ -190,11 +192,11 @@ def main(args):
             save_point_cloud('tmp/global.predicted.ply', pointcloud_global, predicted_labels_colors)
             save_point_cloud('tmp/global.groundtruth.ply', pointcloud_global, groundtruth_labels_colors)
 
-            pointcloud_camera = transform_to_camera(pointcloud_global.T, camera_transforms[0]).T
+            pointcloud_camera, depths = transform_to_camera(pointcloud_global.T, camera_transforms[0])
             # save the pointcloud in (hopefully) frame space
-            save_point_cloud('tmp/frame.predicted.ply', pointcloud_camera, predicted_labels_colors)
-            save_point_cloud('tmp/frame.groundtruth.ply', pointcloud_camera, groundtruth_labels_colors)
-            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, label_colormap)
+            save_point_cloud('tmp/frame.predicted.ply', pointcloud_camera.T, predicted_labels_colors)
+            save_point_cloud('tmp/frame.groundtruth.ply', pointcloud_camera.T, groundtruth_labels_colors)
+            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_labels_colors)
 
             # End: Test Workspace
             #-------------------------------------
