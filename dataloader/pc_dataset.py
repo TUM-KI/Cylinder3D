@@ -448,6 +448,12 @@ def get_nuScenes_label_name(label_mapping):
 
     return nuScenes_label_name
 
+def get_nuScenes_label_mapping(label_mapping):
+    with open(label_mapping, 'r') as stream:
+        nuscenesyaml = yaml.safe_load(stream)
+    return nuscenesyaml['labels']
+    
+
 def get_nuScenes_colormap(label_mapping):
     with open(label_mapping, 'r') as stream:
         nuScenesyaml = yaml.safe_load(stream)

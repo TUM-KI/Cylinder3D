@@ -7,10 +7,11 @@ import sys
 
 from config.config import load_config_data
 from builder import data_builder, model_builder
-from dataloader.pc_dataset import get_nuScenes_label_name, get_nuScenes_colormap
+from dataloader.pc_dataset import get_nuScenes_label_mapping, get_nuScenes_colormap
 
 import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.patches as mpatches
 matplotlib.use('TkAgg')
 from PIL import Image
 
@@ -113,7 +114,17 @@ def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, colormap: np.
     new_color = colormap[mask]
     return new_lidar, new_color
 
-def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap):
+def create_legend(ax, label, label_mapping, color_map, loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.0)):
+    recs = []
+    present_classes = []
+    for idx, name in sorted(label_mapping.items()):
+        if idx in label and name not in present_classes:
+            present_classes.append(name)
+            recs.append(mpatches.Rectangle((0,0), 1, 1, fc=np.array(color_map[idx])/255.0))
+    ax.legend(recs, present_classes, loc=loc, ncol=ncol, bbox_to_anchor=bbox_to_anchor)
+
+
+def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap, label, label_mapping, label_color_map, dot_size: int = 5):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
         image = img_stack[i]
@@ -121,10 +132,13 @@ def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap):
         pointcloud, depths = transform_to_camera(pc, transforms)
         pointcloud, color = filter_points_not_in_cam(pointcloud, image, np.array(colormap), depths)
 
-        fig, ax = plt.subplots(1,1)
+        height, width = image.shape[0], image.shape[1]
+        px = 1 / plt.rcParams['figure.dpi']
+        fig, ax = plt.subplots(1,1, figsize=(width*px, height*px))
         ax.imshow(image)
-        ax.scatter(pointcloud[0,:], pointcloud[1,:], c=color/255.0)
+        ax.scatter(pointcloud[0,:], pointcloud[1,:], c=color/255.0, s=dot_size)
         ax.axis('off')
+        create_legend(ax, label, label_mapping, label_color_map)
         plt.show()
 
 
@@ -133,9 +147,9 @@ def main(args):
 
     configs = load_config_data(args.config_path)
 
-    label_mapping = configs['dataset_params']['label_mapping']
-    label_name = get_nuScenes_label_name(label_mapping)
-    label_colormap = get_nuScenes_colormap(label_mapping)
+    label_mapping_path = configs['dataset_params']['label_mapping']
+    label_mapping = get_nuScenes_label_mapping(label_mapping_path)
+    label_colormap = get_nuScenes_colormap(label_mapping_path)
 
     model_config = configs['model_params']
     my_model = model_builder.build(model_config)
@@ -181,7 +195,9 @@ def main(args):
                                             val_grid[0][:,1],
                                             val_grid[0][:,2]
                                         ]]
-            groundtruth_labels_colors = [label_colormap[i] for i in val_pt_labs[0][:,0]]
+
+            groundtruth_label = val_pt_labs[0][:,0]
+            groundtruth_labels_colors = [label_colormap[i] for i in groundtruth_label]
             pointcloud = voxel_position[0].numpy()
             # save the pointcloud in (hopefully) lidar sensor space
             save_point_cloud('tmp/lidar_sensor.predicted.ply', pointcloud, predicted_labels_colors)
@@ -196,7 +212,7 @@ def main(args):
             # save the pointcloud in (hopefully) frame space
             save_point_cloud('tmp/frame.predicted.ply', pointcloud_camera.T, predicted_labels_colors)
             save_point_cloud('tmp/frame.groundtruth.ply', pointcloud_camera.T, groundtruth_labels_colors)
-            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_labels_colors)
+            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_labels_colors, groundtruth_label, label_mapping, label_colormap)
 
             # End: Test Workspace
             #-------------------------------------
