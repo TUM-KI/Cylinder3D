@@ -56,6 +56,7 @@ RUN chmod +x run_demo.sh
 RUN mkdir model_save_dir_nuscenes
 RUN mkdir logs_dir
 
-ENTRYPOINT python3 visualize.py
+
+#ENTRYPOINT python3 visualize.py
 
 

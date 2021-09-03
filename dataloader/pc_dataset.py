@@ -9,6 +9,9 @@ import yaml
 import pickle
 from PIL import Image
 from pyquaternion.quaternion import Quaternion
+import json
+
+from typing import Tuple, Dict
 
 REGISTERED_PC_DATASET_CLASSES = {}
 
@@ -224,6 +227,97 @@ class SemKITTI_nusc(data.Dataset):
         print(matrix)
         return matrix
 
+@register_dataset
+class Custom_nuScenes(data.Dataset):
+    def __init__(self, data_path, imageset='train',
+                 return_ref=False, label_mapping='nuscenes.yaml', nusc=None):
+        self.return_ref = return_ref
+        self.root_dir = data_path
+        self.current_index = -1
+        self.scene_index = 0
+
+        self.dataset_folder_name = 'Dataset'
+        self.mappings_folder_name = 'Mappings'
+
+        # TODO: implement correspondence look ahead
+
+        self.lidar_dict, self.tranform_dict = self._load_scene(self.root_dir, self.scene_index)
+        self.meta_data = self._load_meta_data(self.root_dir, self.scene_index)
+        self.num_samples = len(self.lidar_dict)
+
+    def __len__(self) -> int:
+        return self.num_samples
+
+    def __getitem__(self, index) -> Tuple:
+        self.current_index = index
+
+        sample = self.lidar_dict[str(index)]
+        pointcloud = np.array(sample['pointcloud'][:-1]).astype(np.float32).T
+        instance_ids = np.array(sample['instances'])
+        moved = np.array(sample['moved'])
+        label = self._label_all_points(sample['label'], instance_ids).astype(np.uint8)
+        data_tuple = (pointcloud[:, :3], label)
+        if self.return_ref:
+            data_tuple += (pointcloud[:, 3],)
+        return data_tuple
+
+
+    def _load_scene(self, root_dir: str, scene_idx: int) -> Tuple[Dict, Dict]:
+        """
+        For given scene index load all LIDAR samples and the
+        corresponding transforms.
+        :param root_dir: the parent directory for the dataset
+        :param index: the scene index
+        :return: Dicts for lidar and transform samples
+        """
+        scene_path = self._get_scene_path(root_dir, scene_idx)
+        data_path = os.path.join(scene_path, 'data')
+        meta_path = os.path.join(scene_path, 'meta')
+        index_str = str(scene_idx)
+        lidar_path = os.path.join(data_path, index_str + "_lidar.json")
+        transform_path = os.path.join(meta_path, index_str + "_meta.json")
+
+        lidar_dict = self._load_json(lidar_path)
+        transform_dict = self._load_json(transform_path)
+
+        return lidar_dict, transform_dict
+
+    def _load_meta_data(self, root_dir: str, scene_idx: int) -> Dict:
+        """
+        Load the meta data for the given scene.
+        :param root_dir: the parent directory for the dataset
+        :param scene_index: the scene index.
+        :return: dictionary with the meta data
+        """
+        scene_path = self._get_scene_path(root_dir, scene_idx)
+        meta_file = os.path.join(scene_path, 'meta', f"{scene_idx}_meta.json")
+        return self._load_json(meta_file)
+
+    def _get_scene_path(self, root_dir: str, scene_idx: int) -> str:
+        """
+        Returns the data path for given scene index.
+        :param root_dir: the parent dir of our custom nuScenes dataset
+        :param scene_idx: the scene index 
+        :return: The path for given scene index
+        """
+        return os.path.join(root_dir, self.dataset_folder_name, str(scene_idx))
+
+    def _label_all_points(self, label: np.ndarray, instance_ids: np.ndarray) -> np.ndarray:
+        """
+        Get a dense labeling of every LIDAR point.
+        :param label: the label dict
+        :param instance_ids: the instance ids of every point
+        :return: the dense labeling as np array.
+        """
+        labeled_points = np.zeros(instance_ids.shape)
+        for i, idx in enumerate(instance_ids):
+            l = label[str(idx)] if idx != -1 else -1
+            labeled_points[i] = l
+        return labeled_points
+
+    def _load_json(self, path: str) -> Dict:
+        with open(path, 'r') as f:
+            return json.load(f)
 
 def absoluteFilePaths(directory):
     for dirpath, _, filenames in os.walk(directory):
