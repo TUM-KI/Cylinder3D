@@ -130,9 +130,10 @@ def color_points(label: np.ndarray, color_mapping: Dict) -> np.ndarray:
     return np.array([color_mapping[i] for i in label])
 
 
-def render_lidar_into_image_stack(img_stack: np.ndarray, pc: np.ndarray, camera_transforms: List, 
+def render_lidar_into_image_stack(dest:str, img_stack: np.ndarray, pc: np.ndarray, camera_transforms: List, 
                                   label: np.ndarray, label_mapping: Dict, 
-                                  color_mapping: Dict, dot_size: int = 5
+                                  color_mapping: Dict, dot_size: int = 5,
+                                  show:bool = False
     ):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
@@ -149,7 +150,13 @@ def render_lidar_into_image_stack(img_stack: np.ndarray, pc: np.ndarray, camera_
         ax.scatter(pointcloud[0,:], pointcloud[1,:], c=color/255.0, s=dot_size)
         ax.axis('off')
         create_legend(ax, label, label_mapping, color_mapping)
-        plt.show()
+        if show:
+            plt.show()
+
+        s, (width, height) = fig.canvas.print_to_buffer()
+        img = np.fromstring(s, np.uint8).reshape((height, width, 4))
+        img = Image.fromarray(img)
+        img.save(f"{dest}/frame_{camera_channel[i]}.png")
 
 
 def main(args):
@@ -221,7 +228,7 @@ def main(args):
             # save the pointcloud in (hopefully) frame space
             save_point_cloud('tmp/frame.predicted.ply', pointcloud_camera.T, predicted_labels_colors)
             save_point_cloud('tmp/frame.groundtruth.ply', pointcloud_camera.T, groundtruth_labels_colors)
-            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_label, label_mapping, label_colormap)
+            render_lidar_into_image_stack('tmp', camera_images, pointcloud_global.T, camera_transforms, groundtruth_label, label_mapping, label_colormap)
 
             # End: Test Workspace
             #-------------------------------------
