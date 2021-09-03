@@ -20,7 +20,7 @@ from pyquaternion.quaternion import Quaternion
 from nuscenes.utils.geometry_utils import view_points
 
 from dataloader.dataset_nuscenes import polar2cat
-from typing import Dict
+from typing import Dict, List, Tuple
 
 def save_point_cloud(path, pc, color):
     num_vertices = pc.shape[0]
@@ -115,7 +115,9 @@ def filter_points_not_in_cam(lidar: np.ndarray, image: np.ndarray, colormap: np.
     new_color = colormap[mask]
     return new_lidar, new_color
 
-def create_legend(ax, label, label_mapping, color_map, loc='upper center', ncol=3, bbox_to_anchor=(0.5, 1.0)):
+def create_legend(ax, label: np.ndarray, label_mapping: Dict, color_map: Dict,
+                  loc: str='upper center', ncol: int=3, bbox_to_anchor: Tuple[float, float]=(0.5, 1.0)
+    ):
     recs = []
     present_classes = []
     for idx, name in sorted(label_mapping.items()):
@@ -128,7 +130,10 @@ def color_points(label: np.ndarray, color_mapping: Dict) -> np.ndarray:
     return np.array([color_mapping[i] for i in label])
 
 
-def render_lidar_into_image_stack(img_stack, pc, camera_transforms, label, label_mapping, color_mapping, dot_size: int = 5):
+def render_lidar_into_image_stack(img_stack: np.ndarray, pc: np.ndarray, camera_transforms: List, 
+                                  label: np.ndarray, label_mapping: Dict, 
+                                  color_mapping: Dict, dot_size: int = 5
+    ):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
         image = img_stack[i]
