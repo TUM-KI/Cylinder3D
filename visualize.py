@@ -20,6 +20,7 @@ from pyquaternion.quaternion import Quaternion
 from nuscenes.utils.geometry_utils import view_points
 
 from dataloader.dataset_nuscenes import polar2cat
+from typing import Dict
 
 def save_point_cloud(path, pc, color):
     num_vertices = pc.shape[0]
@@ -123,14 +124,18 @@ def create_legend(ax, label, label_mapping, color_map, loc='upper center', ncol=
             recs.append(mpatches.Rectangle((0,0), 1, 1, fc=np.array(color_map[idx])/255.0))
     ax.legend(recs, present_classes, loc=loc, ncol=ncol, bbox_to_anchor=bbox_to_anchor)
 
+def color_points(label: np.ndarray, color_mapping: Dict) -> np.ndarray:
+    return np.array([color_mapping[i] for i in label])
 
-def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap, label, label_mapping, label_color_map, dot_size: int = 5):
+
+def render_lidar_into_image_stack(img_stack, pc, camera_transforms, label, label_mapping, color_mapping, dot_size: int = 5):
     camera_channel = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
     for i in range(len(camera_channel)):
         image = img_stack[i]
         transforms = camera_transforms[i]
+        colored_points = color_points(label, color_mapping)
         pointcloud, depths = transform_to_camera(pc, transforms)
-        pointcloud, color = filter_points_not_in_cam(pointcloud, image, np.array(colormap), depths)
+        pointcloud, color = filter_points_not_in_cam(pointcloud, image, np.array(colored_points), depths)
 
         height, width = image.shape[0], image.shape[1]
         px = 1 / plt.rcParams['figure.dpi']
@@ -138,7 +143,7 @@ def render_lidar_into_image_stack(img_stack, pc, camera_transforms, colormap, la
         ax.imshow(image)
         ax.scatter(pointcloud[0,:], pointcloud[1,:], c=color/255.0, s=dot_size)
         ax.axis('off')
-        create_legend(ax, label, label_mapping, label_color_map)
+        create_legend(ax, label, label_mapping, color_mapping)
         plt.show()
 
 
@@ -182,7 +187,6 @@ def main(args):
             predicted_labels = my_model(val_pt_fea_tensor, val_grid_tensor, val_batch_size)
             predicted_labels = torch.argmax(predicted_labels, dim=1)
             predicted_labels = predicted_labels.cpu().detach().numpy()
-            # print(predicted_labels[0])
 
             lidar_transforms, camera_transforms = val_dataset.get_transform()
             camera_images = val_dataset.get_images()
@@ -190,14 +194,14 @@ def main(args):
             #-------------------------------------
             # Test Workspace
 
-            predicted_labels_colors = [label_colormap[i] for i in predicted_labels[
+            predicted_labels_colors = color_points(predicted_labels[
                                             0, val_grid[0][:,0], 
                                             val_grid[0][:,1],
                                             val_grid[0][:,2]
-                                        ]]
+                                        ], label_colormap)
 
             groundtruth_label = val_pt_labs[0][:,0]
-            groundtruth_labels_colors = [label_colormap[i] for i in groundtruth_label]
+            groundtruth_labels_colors = color_points(groundtruth_label, label_colormap)
             pointcloud = voxel_position[0].numpy()
             # save the pointcloud in (hopefully) lidar sensor space
             save_point_cloud('tmp/lidar_sensor.predicted.ply', pointcloud, predicted_labels_colors)
@@ -212,7 +216,7 @@ def main(args):
             # save the pointcloud in (hopefully) frame space
             save_point_cloud('tmp/frame.predicted.ply', pointcloud_camera.T, predicted_labels_colors)
             save_point_cloud('tmp/frame.groundtruth.ply', pointcloud_camera.T, groundtruth_labels_colors)
-            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_labels_colors, groundtruth_label, label_mapping, label_colormap)
+            render_lidar_into_image_stack(camera_images, pointcloud_global.T, camera_transforms, groundtruth_label, label_mapping, label_colormap)
 
             # End: Test Workspace
             #-------------------------------------
